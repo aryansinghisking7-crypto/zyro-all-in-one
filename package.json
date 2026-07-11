@@ -1,14 +1,19 @@
 {
-  "name": "zyro-bot",
+  "name": "zyro-all-in-one",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "croxydb": "latest",
     "discord.js": "^14.14.1",
-    "dotenv": "^16.4.1",
-    "express": "^4.18.2"
+    "dotenv": "^16.4.5",
+    "@discordjs/rest": "^2.3.0",
+    "discord-api-types": "^0.37.55",
+    "quick.db": "^9.1.7",
+    "qrcode": "^1.5.3"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
