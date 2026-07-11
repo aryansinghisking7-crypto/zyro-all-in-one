@@ -6,7 +6,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "croxydb": "^1.4.0",
+    "croxydb": "latest",
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.1",
     "express": "^4.18.2"
