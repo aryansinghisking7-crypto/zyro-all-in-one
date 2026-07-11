@@ -1,13 +1,14 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, SlashCommandBuilder, REST, Routes, ContextMenuCommandBuilder, ApplicationCommandType } = require('discord.js');
 const db = require('croxydb');
-const express = require('express'); // ADDED FOR UPTIMEROBOT
+const express = require('express');
 
 const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
 const TICKET_CATEGORY = process.env.TICKET_CATEGORY;
 const TICKET_ROLE = process.env.TICKET_ROLE;
 
-const app = express(); // KEEP RENDER AWAKE
+const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('ZYRO-BOT is running!'));
 app.listen(PORT, () => console.log(`🌐 Web server on port ${PORT}`));
@@ -17,29 +18,57 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
-    ]
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.DirectMessages // ADD THIS FOR DM SUPPORT
+    ],
+    partials: ['CHANNEL'] // ADD THIS FOR DM SUPPORT
 });
 
-client.once('ready', () => {
+// 1. REGISTER GLOBAL SLASH COMMANDS - WORKS IN ALL SERVERS + DM
+const commands = [
+  new SlashCommandBuilder()
+    .setName('ping')
+    .setDescription('Check bot latency')
+    .setDMPermission(true), // ALLOWS IN DM
+    
+  new SlashCommandBuilder()
+    .setName('setup-ticket')
+    .setDescription('Setup the ticket system panel')
+    .setDMPermission(false), // TICKETS ONLY WORK IN SERVERS
+];
+
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} is online!`);
+
+    // GLOBAL REGISTER - TAKES UP TO 1 HOUR TO SHOW IN ALL SERVERS
+    try {
+        console.log('Registering GLOBAL slash commands...');
+        await rest.put(
+            Routes.applicationCommands(CLIENT_ID), // CHANGED THIS LINE
+            { body: commands.map(cmd => cmd.toJSON()) },
+        );
+        console.log('Global slash commands registered!');
+    } catch (error) {
+        console.error(error);
+    }
 });
 
-// ALL YOUR COMMANDS SAME AS BEFORE
-client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
-    if (!message.content.startsWith('!')) return;
+// 2. HANDLE SLASH COMMANDS
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
 
-    const args = message.content.slice(1).split(/ +/);
-    const command = args.shift().toLowerCase();
-
-    if (command === 'ping') {
-        message.reply(`Pong! ${client.ws.ping}ms`);
+    // /ping command - WORKS IN DM TOO
+    if (interaction.isChatInputCommand() && interaction.commandName === 'ping') {
+        await interaction.reply(`Pong! ${client.ws.ping}ms 🏓`);
     }
 
-    if (command === 'setup-ticket') {
-        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) 
-            return message.reply('You need Admin perms');
+    // /setup-ticket command - ONLY IN SERVERS
+    if (interaction.isChatInputCommand() && interaction.commandName === 'setup-ticket') {
+        if (!interaction.inGuild()) return interaction.reply({content: 'This command only works in servers!', ephemeral: true});
+        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) 
+            return interaction.reply({ content: 'You need Admin perms', ephemeral: true });
 
         const embed = new EmbedBuilder()
           .setTitle('🎫 Support Ticket')
@@ -55,53 +84,52 @@ client.on('messageCreate', async (message) => {
                   .setEmoji('🎫'),
             );
 
-        message.channel.send({ embeds: [embed], components: [row] });
-    }
-});
-
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
-
-    if (interaction.customId === 'create_ticket') {
-        const guild = interaction.guild;
-        const user = interaction.user;
-
-        const existingTicket = db.get(`ticket_${guild.id}_${user.id}`);
-        if (existingTicket) return interaction.reply({ content: 'You already have an open ticket!', ephemeral: true });
-
-        const channel = await guild.channels.create({
-            name: `ticket-${user.username}`,
-            type: ChannelType.GuildText,
-            parent: TICKET_CATEGORY,
-            permissionOverwrites: [
-                { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-                { id: TICKET_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
-            ]
-        });
-
-        db.set(`ticket_${guild.id}_${user.id}`, channel.id);
-
-        const embed = new EmbedBuilder()
-          .setTitle('Ticket Created')
-          .setDescription(`Hello ${user}, staff will be with you shortly.`)
-          .setColor('Green');
-
-        const closeBtn = new ActionRowBuilder()
-          .addComponents(
-                new ButtonBuilder()
-                  .setCustomId('close_ticket')
-                  .setLabel('Close Ticket')
-                  .setStyle(ButtonStyle.Danger)
-            );
-
-        channel.send({ content: `<@${user.id}> <@&${TICKET_ROLE}>`, embeds: [embed], components: [closeBtn] });
-        interaction.reply({ content: `Ticket created: ${channel}`, ephemeral: true });
+        await interaction.reply({ embeds: [embed], components: [row] });
     }
 
-    if (interaction.customId === 'close_ticket') {
-        db.delete(`ticket_${interaction.guild.id}_${interaction.user.id}`);
-        await interaction.channel.delete();
+    // BUTTON HANDLERS - SAME AS BEFORE
+    if (interaction.isButton()) {
+        if (interaction.customId === 'create_ticket') {
+            const guild = interaction.guild;
+            const user = interaction.user;
+
+            const existingTicket = db.get(`ticket_${guild.id}_${user.id}`);
+            if (existingTicket) return interaction.reply({ content: 'You already have an open ticket!', ephemeral: true });
+
+            const channel = await guild.channels.create({
+                name: `ticket-${user.username}`,
+                type: ChannelType.GuildText,
+                parent: TICKET_CATEGORY,
+                permissionOverwrites: [
+                    { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+                    { id: TICKET_ROLE, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+                ]
+            });
+
+            db.set(`ticket_${guild.id}_${user.id}`, channel.id);
+
+            const embed = new EmbedBuilder()
+              .setTitle('Ticket Created')
+              .setDescription(`Hello ${user}, staff will be with you shortly.`)
+              .setColor('Green');
+
+            const closeBtn = new ActionRowBuilder()
+              .addComponents(
+                    new ButtonBuilder()
+                      .setCustomId('close_ticket')
+                      .setLabel('Close Ticket')
+                      .setStyle(ButtonStyle.Danger)
+                );
+
+            channel.send({ content: `<@${user.id}> <@&${TICKET_ROLE}>`, embeds: [embed], components: [closeBtn] });
+            interaction.reply({ content: `Ticket created: ${channel}`, ephemeral: true });
+        }
+
+        if (interaction.customId === 'close_ticket') {
+            db.delete(`ticket_${interaction.guild.id}_${interaction.user.id}`);
+            await interaction.channel.delete();
+        }
     }
 });
 
