@@ -1,20 +1,11 @@
 {
   "name": "zyro-all-in-one",
-  "version": "2.0.1",
-  "description": "ZYRO ALL IN ONE Discord Bot",
+  "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
   "dependencies": {
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.5",
-    "@discordjs/rest": "^2.3.0",
-    "discord-api-types": "^0.37.55",
-    "wio.db": "^1.0.2",
-    "qrcode": "^1.5.3"
-  },
-  "engines": {
-    "node": "18.x"
+    "qrcode": "^1.5.3",
+    "wio.db": "^3.0.3"
   }
 }
