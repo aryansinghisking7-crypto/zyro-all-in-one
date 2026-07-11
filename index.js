@@ -14,8 +14,6 @@ const client = new Client({
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const TICKET_CATEGORY = process.env.TICKET_CATEGORY; // Category ID
-const TICKET_ROLE = process.env.TICKET_ROLE; // NEW: Support Role ID
 
 // Slash Commands
 const commands = [
@@ -45,14 +43,13 @@ client.once('ready', async () => {
 client.on('interactionCreate', async interaction => {
   if (interaction.isCommand()) {
     if (interaction.commandName === 'setup-ticket') {
-      // FIXED for v14
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({ content: '❌ You need Administrator to use this.', ephemeral: true });
       }
 
       const embed = new EmbedBuilder()
         .setTitle('🎫 Support Ticket System')
-        .setDescription('Click the button below to create a ticket!\n\nOur support team will help you.')
+        .setDescription('Click the button below to create a ticket!')
         .setColor(0x5865F2);
 
       const row = new ActionRowBuilder()
@@ -70,35 +67,26 @@ client.on('interactionCreate', async interaction => {
 
   if (interaction.isButton()) {
     if (interaction.customId === 'create_ticket') {
-      if (!TICKET_CATEGORY) {
-        return interaction.reply({ content: '❌ Set TICKET_CATEGORY in Render Environment first!', ephemeral: true });
-      }
-      if (!TICKET_ROLE) {
-        return interaction.reply({ content: '❌ Set TICKET_ROLE in Render Environment first!', ephemeral: true });
-      }
+      // Create ticket in same category as current channel
+      const categoryId = interaction.channel.parentId || null;
 
       const ticketChannel = await interaction.guild.channels.create({
         name: `ticket-${interaction.user.username}`,
         type: ChannelType.GuildText,
-        parent: TICKET_CATEGORY,
+        parent: categoryId, // same category
         permissionOverwrites: [
           {
-            id: interaction.guild.id,
+            id: interaction.guild.id, // @everyone
             deny: [PermissionFlagsBits.ViewChannel]
           },
           {
             id: interaction.user.id,
             allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles]
-          },
-          { // NEW: Give support role access
-            id: TICKET_ROLE,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages]
           }
         ]
       });
 
-      // Ping user + role
-      await ticketChannel.send(`<@${interaction.user.id}> <@&${TICKET_ROLE}> Support will be with you shortly!`);
+      await ticketChannel.send(`<@${interaction.user.id}> A staff member will be with you shortly!`);
       await interaction.reply({ content: `✅ Ticket created: ${ticketChannel}`, ephemeral: true });
     }
   }
