@@ -1,6 +1,7 @@
 {
   "name": "zyro-all-in-one",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "description": "ZYRO ALL IN ONE Discord Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,7 +11,7 @@
     "dotenv": "^16.4.5",
     "@discordjs/rest": "^2.3.0",
     "discord-api-types": "^0.37.55",
-    "quick.db": "^9.1.7",
+    "wio.db": "^2.1.0",
     "qrcode": "^1.5.3"
   },
   "engines": {
