@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const QRCode = require('qrcode');
 const db = require('wio.db');
 require('dotenv').config();
@@ -20,26 +20,26 @@ const SUPPORT_ROLE = process.env.SUPPORT_ROLE;
 const spamMap = new Map();
 const claimedTickets = new Map(); // ticketID: userID
 
-// ===== SLASH COMMANDS =====
+// ===== SLASH COMMANDS WITH BUILDER =====
 const commands = [
-  { name: 'setup-ticket', description: 'Setup the ZYRO ticket panel' },
-  { name: 'add', description: 'Add user to ticket', options: [{name: 'user', type: 6, required: true}] },
-  { name: 'remove', description: 'Remove user from ticket', options: [{name: 'user', type: 6, required: true}] },
-  { name: 'close', description: 'Close this ticket' },
-  { name: 'claim', description: 'Claim this ticket' },
-  { name: 'unclaim', description: 'Unclaim this ticket' },
-  { name: 'vouch', description: 'Give vouch', options: [{name: 'user', type: 6, required: true}, {name: 'item', type: 3, required: true}, {name: 'price', type: 3, required: true}] },
-  { name: 'vouchlist', description: 'Check vouches of a user', options: [{name: 'user', type: 6, required: true}] },
-  { name: 'setupi', description: 'Save your UPI ID', options: [{name: 'upi_id', type: 3, required: true}] },
-  { name: 'setltc', description: 'Save your LTC Address', options: [{name: 'ltc', type: 3, required: true}] },
-  { name: 'upiqr', description: 'Generate UPI QR', options: [{name: 'amount', type: 3, required: true}] },
-  { name: 'ltc', description: 'Get LTC payment info', options: [{name: 'amount', type: 3, required: true}] },
-  { name: 'purge', description: 'Delete messages', options: [{name: 'amount', type: 4, required: true}] },
-  { name: 'ban', description: 'Ban user', options: [{name: 'user', type: 6, required: true}, {name: 'reason', type: 3, required: false}] },
-  { name: 'kick', description: 'Kick user', options: [{name: 'user', type: 6, required: true}, {name: 'reason', type: 3, required: false}] },
-  { name: 'timeout', description: 'Timeout user', options: [{name: 'user', type: 6, required: true}, {name: 'time', type: 4, required: true}] },
-  { name: 'slots', description: 'Casino slots - bet amount', options: [{name: 'amount', type: 4, required: true}] },
-];
+  new SlashCommandBuilder().setName('setup-ticket').setDescription('Setup the ZYRO ticket panel'),
+  new SlashCommandBuilder().setName('add').setDescription('Add user to ticket').addUserOption(o => o.setName('user').setDescription('User to add').setRequired(true)),
+  new SlashCommandBuilder().setName('remove').setDescription('Remove user from ticket').addUserOption(o => o.setName('user').setDescription('User to remove').setRequired(true)),
+  new SlashCommandBuilder().setName('close').setDescription('Close this ticket'),
+  new SlashCommandBuilder().setName('claim').setDescription('Claim this ticket'),
+  new SlashCommandBuilder().setName('unclaim').setDescription('Unclaim this ticket'),
+  new SlashCommandBuilder().setName('vouch').setDescription('Give vouch').addUserOption(o => o.setName('user').setDescription('User to vouch').setRequired(true)).addStringOption(o => o.setName('item').setDescription('Item bought').setRequired(true)).addStringOption(o => o.setName('price').setDescription('Price').setRequired(true)),
+  new SlashCommandBuilder().setName('vouchlist').setDescription('Check vouches of a user').addUserOption(o => o.setName('user').setDescription('User to check').setRequired(true)),
+  new SlashCommandBuilder().setName('setupi').setDescription('Save your UPI ID').addStringOption(o => o.setName('upi_id').setDescription('Your UPI ID').setRequired(true)),
+  new SlashCommandBuilder().setName('setltc').setDescription('Save your LTC Address').addStringOption(o => o.setName('ltc').setDescription('Your LTC address').setRequired(true)),
+  new SlashCommandBuilder().setName('upiqr').setDescription('Generate UPI QR').addStringOption(o => o.setName('amount').setDescription('Amount in INR').setRequired(true)),
+  new SlashCommandBuilder().setName('ltc').setDescription('Get LTC payment info').addStringOption(o => o.setName('amount').setDescription('Amount in LTC').setRequired(true)),
+  new SlashCommandBuilder().setName('purge').setDescription('Delete messages').addIntegerOption(o => o.setName('amount').setDescription('Number of messages').setRequired(true)),
+  new SlashCommandBuilder().setName('ban').setDescription('Ban user').addUserOption(o => o.setName('user').setDescription('User to ban').setRequired(true)).addStringOption(o => o.setName('reason').setDescription('Reason for ban')),
+  new SlashCommandBuilder().setName('kick').setDescription('Kick user').addUserOption(o => o.setName('user').setDescription('User to kick').setRequired(true)).addStringOption(o => o.setName('reason').setDescription('Reason for kick')),
+  new SlashCommandBuilder().setName('timeout').setDescription('Timeout user').addUserOption(o => o.setName('user').setDescription('User to timeout').setRequired(true)).addIntegerOption(o => o.setName('time').setDescription('Time in seconds').setRequired(true)),
+  new SlashCommandBuilder().setName('slots').setDescription('Casino slots - bet amount').addIntegerOption(o => o.setName('amount').setDescription('Bet amount').setRequired(true)),
+].map(c => c.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
@@ -78,8 +78,8 @@ client.on('interactionCreate', async interaction => {
       if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) return await interaction.reply({content: '❌ Admin only', ephemeral: true});
       
       const embed = new EmbedBuilder()
-    .setTitle('🎫 ZYRO Ticket System')
-    .setDescription(`Welcome to the ZYRO Ticket System — your fast, secure, and professional support center.
+   .setTitle('🎫 ZYRO Ticket System')
+   .setDescription(`Welcome to the ZYRO Ticket System — your fast, secure, and professional support center.
 Whether you need customer support, purchase assistance, order help, reports, partnerships, or general inquiries, our dedicated team is here to assist you as quickly as possible.
 ✨ **Why choose ZYRO?**
 - ⚡ Fast response times
@@ -89,9 +89,9 @@ Whether you need customer support, purchase assistance, order help, reports, par
 - ✅ Organized ticket management
 Please create only one ticket per issue and provide all necessary details so we can help you efficiently.
 Thank you for choosing ZYRO. We appreciate your patience and look forward to assisting you!`)
-    .setColor(0x5865F2)
-    .setThumbnail(client.user.displayAvatarURL())
-    .setFooter({ text: 'ZYRO ALL IN ONE', iconURL: client.user.displayAvatarURL() });
+   .setColor(0x5865F2)
+   .setThumbnail(client.user.displayAvatarURL())
+   .setFooter({ text: 'ZYRO ALL IN ONE', iconURL: client.user.displayAvatarURL() });
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('create_ticket').setLabel('Create Ticket').setStyle(ButtonStyle.Primary).setEmoji('🎫')
@@ -116,11 +116,11 @@ Thank you for choosing ZYRO. We appreciate your patience and look forward to ass
       claimedTickets.delete(ticket.id);
 
       const embed = new EmbedBuilder()
-    .setDescription(`Hello <@${interaction.user.id}>,
+   .setDescription(`Hello <@${interaction.user.id}>,
 A staff member will be with you shortly.
 Please describe your issue in detail.`)
-    .setFooter({ text: 'Powered by ZYRO', iconURL: client.user.displayAvatarURL() })
-    .setColor(0x2B2D31);
+   .setFooter({ text: 'Powered by ZYRO', iconURL: client.user.displayAvatarURL() })
+   .setColor(0x2B2D31);
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('close_ticket').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
