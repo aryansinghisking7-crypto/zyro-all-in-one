@@ -1,17 +1,20 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-const { REST } = require('@discordjs/rest');
-const { Routes } = require('discord-api-types/v9');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes } = require('discord.js');
 const QRCode = require('qrcode');
+const db = require('wio.db');
 require('dotenv').config();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers] });
-
-const { QuickDB } = require("quick.db");
-const db = new QuickDB();
+const client = new Client({ 
+  intents: [
+    GatewayIntentBits.Guilds, 
+    GatewayIntentBits.GuildMessages, 
+    GatewayIntentBits.MessageContent, 
+    GatewayIntentBits.GuildMembers
+  ] 
+});
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const SUPPORT_ROLE = process.env.SUPPORT_ROLE; // Add this in Render
+const SUPPORT_ROLE = process.env.SUPPORT_ROLE;
 
 // Anti-spam tracker
 const spamMap = new Map();
@@ -43,6 +46,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', async () => {
   console.log(`✅ ${client.user.tag} is online!`);
   await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+  console.log('✅ Commands registered');
 });
 
 // ===== ANTI-SPAM AUTO MOD =====
@@ -61,7 +65,7 @@ client.on('messageCreate', async message => {
     spamMap.set(key, []);
     try {
       await message.member.timeout(60 * 1000, 'Spam pinging > 5 times in 1 minute');
-      message.channel.send(`🔨 ${message.author} was timed out for 1 min for spam pinging.`);
+      await message.channel.send(`🔨 ${message.author} was timed out for 1 min for spam pinging.`);
     } catch {}
   }
 });
@@ -71,28 +75,23 @@ client.on('interactionCreate', async interaction => {
   try {
     // ===== TICKET PANEL =====
     if (interaction.isCommand() && interaction.commandName === 'setup-ticket') {
-      if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) return interaction.reply({content: '❌ Admin only', ephemeral: true});
+      if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) return await interaction.reply({content: '❌ Admin only', ephemeral: true});
       
       const embed = new EmbedBuilder()
-      .setTitle('🎫 ZYRO Ticket System')
-      .setDescription(`Welcome to the ZYRO Ticket System — your fast, secure, and professional support center.
-
+    .setTitle('🎫 ZYRO Ticket System')
+    .setDescription(`Welcome to the ZYRO Ticket System — your fast, secure, and professional support center.
 Whether you need customer support, purchase assistance, order help, reports, partnerships, or general inquiries, our dedicated team is here to assist you as quickly as possible.
-
 ✨ **Why choose ZYRO?**
-
 - ⚡ Fast response times
 - 🔒 Private and secure tickets
 - 👥 Professional support staff
 - 💬 Friendly and reliable assistance
 - ✅ Organized ticket management
-
 Please create only one ticket per issue and provide all necessary details so we can help you efficiently.
-
 Thank you for choosing ZYRO. We appreciate your patience and look forward to assisting you!`)
-      .setColor(0x5865F2)
-      .setThumbnail(client.user.displayAvatarURL())
-      .setFooter({ text: 'ZYRO ALL IN ONE', iconURL: client.user.displayAvatarURL() });
+    .setColor(0x5865F2)
+    .setThumbnail(client.user.displayAvatarURL())
+    .setFooter({ text: 'ZYRO ALL IN ONE', iconURL: client.user.displayAvatarURL() });
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('create_ticket').setLabel('Create Ticket').setStyle(ButtonStyle.Primary).setEmoji('🎫')
@@ -117,11 +116,11 @@ Thank you for choosing ZYRO. We appreciate your patience and look forward to ass
       claimedTickets.delete(ticket.id);
 
       const embed = new EmbedBuilder()
-      .setDescription(`Hello <@${interaction.user.id}>,
+    .setDescription(`Hello <@${interaction.user.id}>,
 A staff member will be with you shortly.
 Please describe your issue in detail.`)
-      .setFooter({ text: 'Powered by ZYRO', iconURL: client.user.displayAvatarURL() })
-      .setColor(0x2B2D31);
+    .setFooter({ text: 'Powered by ZYRO', iconURL: client.user.displayAvatarURL() })
+    .setColor(0x2B2D31);
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('close_ticket').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
@@ -135,14 +134,14 @@ Please describe your issue in detail.`)
 
     // ===== TICKET BUTTONS =====
     if (interaction.isButton() && interaction.customId === 'close_ticket') {
-      if (!interaction.member.roles.cache.has(SUPPORT_ROLE)) return interaction.reply({content: '❌ Only Support can close', ephemeral: true});
+      if (!interaction.member.roles.cache.has(SUPPORT_ROLE)) return await interaction.reply({content: '❌ Only Support can close', ephemeral: true});
       await interaction.reply('Closing ticket in 5s...');
       claimedTickets.delete(interaction.channel.id);
       setTimeout(() => interaction.channel.delete(), 5000);
     }
 
     if (interaction.isButton() && interaction.customId === 'close_reason') {
-      if (!interaction.member.roles.cache.has(SUPPORT_ROLE)) return interaction.reply({content: '❌ Only Support can close', ephemeral: true});
+      if (!interaction.member.roles.cache.has(SUPPORT_ROLE)) return await interaction.reply({content: '❌ Only Support can close', ephemeral: true});
       const modal = new ModalBuilder().setCustomId('close_modal').setTitle('Close Ticket With Reason');
       const reasonInput = new TextInputBuilder().setCustomId('reason').setLabel("Reason for closing").setStyle(TextInputStyle.Paragraph).setRequired(true);
       modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
@@ -157,46 +156,46 @@ Please describe your issue in detail.`)
     }
 
     if (interaction.isButton() && interaction.customId === 'unclaim_btn') {
-      if (claimedTickets.get(interaction.channel.id)!== interaction.user.id) return interaction.reply({content: '❌ You did not claim this ticket', ephemeral: true});
+      if (claimedTickets.get(interaction.channel.id)!== interaction.user.id) return await interaction.reply({content: '❌ You did not claim this ticket', ephemeral: true});
       claimedTickets.delete(interaction.channel.id);
       await interaction.reply(`🙋 Ticket unclaimed by ${interaction.user}`);
     }
 
     // ===== TICKET COMMANDS =====
     if (interaction.isCommand() && interaction.commandName === 'add') {
-      if (!interaction.channel.name.startsWith('ticket-')) return interaction.reply({content: 'Use in ticket only', ephemeral: true});
+      if (!interaction.channel.name.startsWith('ticket-')) return await interaction.reply({content: 'Use in ticket only', ephemeral: true});
       const user = interaction.options.getUser('user');
       await interaction.channel.permissionOverwrites.edit(user.id, { ViewChannel: true, SendMessages: true });
-      interaction.reply(`✅ Added ${user} to ticket`);
+      await interaction.reply(`✅ Added ${user} to ticket`);
     }
 
     if (interaction.isCommand() && interaction.commandName === 'remove') {
-      if (!interaction.channel.name.startsWith('ticket-')) return interaction.reply({content: 'Use in ticket only', ephemeral: true});
+      if (!interaction.channel.name.startsWith('ticket-')) return await interaction.reply({content: 'Use in ticket only', ephemeral: true});
       const user = interaction.options.getUser('user');
       await interaction.channel.permissionOverwrites.edit(user.id, { ViewChannel: false });
-      interaction.reply(`✅ Removed ${user} from ticket`);
+      await interaction.reply(`✅ Removed ${user} from ticket`);
     }
 
     if (interaction.isCommand() && interaction.commandName === 'claim') {
-      if (!interaction.channel.name.startsWith('ticket-')) return interaction.reply({content: 'Use in ticket only', ephemeral: true});
-      if (!interaction.member.roles.cache.has(SUPPORT_ROLE)) return interaction.reply({content: '❌ Only Support can claim', ephemeral: true});
+      if (!interaction.channel.name.startsWith('ticket-')) return await interaction.reply({content: 'Use in ticket only', ephemeral: true});
+      if (!interaction.member.roles.cache.has(SUPPORT_ROLE)) return await interaction.reply({content: '❌ Only Support can claim', ephemeral: true});
       if (claimedTickets.has(interaction.channel.id)) {
-        return interaction.reply({content: `❌ Already claimed by <@${claimedTickets.get(interaction.channel.id)}>`, ephemeral: true});
+        return await interaction.reply({content: `❌ Already claimed by <@${claimedTickets.get(interaction.channel.id)}>`, ephemeral: true});
       }
       claimedTickets.set(interaction.channel.id, interaction.user.id);
       const embed = new EmbedBuilder().setDescription(`🎫 **${interaction.user} has claimed this ticket**`).setColor(0x57F287);
-      interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed] });
     }
 
     if (interaction.isCommand() && interaction.commandName === 'unclaim') {
-      if (!interaction.channel.name.startsWith('ticket-')) return interaction.reply({content: 'Use in ticket only', ephemeral: true});
-      if (claimedTickets.get(interaction.channel.id)!== interaction.user.id) return interaction.reply({content: '❌ You did not claim this ticket', ephemeral: true});
+      if (!interaction.channel.name.startsWith('ticket-')) return await interaction.reply({content: 'Use in ticket only', ephemeral: true});
+      if (claimedTickets.get(interaction.channel.id)!== interaction.user.id) return await interaction.reply({content: '❌ You did not claim this ticket', ephemeral: true});
       claimedTickets.delete(interaction.channel.id);
-      interaction.reply(`🙋 Ticket unclaimed`);
+      await interaction.reply(`🙋 Ticket unclaimed`);
     }
 
     if (interaction.isCommand() && interaction.commandName === 'close') {
-      if (!interaction.channel.name.startsWith('ticket-')) return interaction.reply({content: 'Use in ticket only', ephemeral: true});
+      if (!interaction.channel.name.startsWith('ticket-')) return await interaction.reply({content: 'Use in ticket only', ephemeral: true});
       await interaction.reply('Closing in 5s...');
       claimedTickets.delete(interaction.channel.id);
       setTimeout(() => interaction.channel.delete(), 5000);
@@ -207,39 +206,39 @@ Please describe your issue in detail.`)
       const user = interaction.options.getUser('user');
       const item = interaction.options.getString('item');
       const price = interaction.options.getString('price');
-      let vouches = await db.get(`vouches-${user.id}`) || [];
+      let vouches = db.get(`vouches-${user.id}`) || [];
       vouches.push({ by: interaction.user.tag, item, price, date: new Date().toLocaleDateString() });
-      await db.set(`vouches-${user.id}`, vouches);
+      db.set(`vouches-${user.id}`, vouches);
       const embed = new EmbedBuilder().setTitle('✅ New Vouch!').setDescription(`**To:** ${user}\n**Item:** ${item}\n**Price:** ${price}\n**By:** ${interaction.user}`).setColor(0x57F287);
-      interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed] });
     }
 
     if (interaction.isCommand() && interaction.commandName === 'vouchlist') {
       const user = interaction.options.getUser('user');
-      let vouches = await db.get(`vouches-${user.id}`) || [];
-      if (vouches.length === 0) return interaction.reply(`${user} has no vouches yet.`);
+      let vouches = db.get(`vouches-${user.id}`) || [];
+      if (vouches.length === 0) return await interaction.reply(`${user} has no vouches yet.`);
       const list = vouches.map((v, i) => `**${i+1}.** ${v.item} - \`${v.price}\` by ${v.by} on ${v.date}`).join('\n');
       const embed = new EmbedBuilder().setTitle(`Vouches for ${user.tag}`).setDescription(list).setColor(0x5865F2);
-      interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed] });
     }
 
     // ===== UPI / LTC SYSTEM =====
     if (interaction.isCommand() && interaction.commandName === 'setupi') {
       const upi = interaction.options.getString('upi_id');
-      await db.set(`upi-${interaction.user.id}`, upi);
-      interaction.reply({content: `✅ UPI saved! You won't need to enter again.`, ephemeral: true});
+      db.set(`upi-${interaction.user.id}`, upi);
+      await interaction.reply({content: `✅ UPI saved! You won't need to enter again.`, ephemeral: true});
     }
 
     if (interaction.isCommand() && interaction.commandName === 'setltc') {
       const ltc = interaction.options.getString('ltc');
-      await db.set(`ltc-${interaction.user.id}`, ltc);
-      interaction.reply({content: `✅ LTC saved!`, ephemeral: true});
+      db.set(`ltc-${interaction.user.id}`, ltc);
+      await interaction.reply({content: `✅ LTC saved!`, ephemeral: true});
     }
 
     if (interaction.isCommand() && interaction.commandName === 'upiqr') {
       const amount = interaction.options.getString('amount');
-      const upi = await db.get(`upi-${interaction.user.id}`);
-      if (!upi) return interaction.reply({content: '❌ First use /setupi', ephemeral: true});
+      const upi = db.get(`upi-${interaction.user.id}`);
+      if (!upi) return await interaction.reply({content: '❌ First use /setupi', ephemeral: true});
       const upiLink = `upi://pay?pa=${upi}&pn=ZYRO&am=${amount}&cu=INR`;
       const qr = await QRCode.toBuffer(upiLink);
       await interaction.reply({ content: `UPI QR for ₹${amount}`, files: [{ attachment: qr, name: 'upi-qr.png' }] });
@@ -247,39 +246,39 @@ Please describe your issue in detail.`)
 
     if (interaction.isCommand() && interaction.commandName === 'ltc') {
       const amount = interaction.options.getString('amount');
-      const ltc = await db.get(`ltc-${interaction.user.id}`);
-      if (!ltc) return interaction.reply({content: '❌ First use /setltc', ephemeral: true});
+      const ltc = db.get(`ltc-${interaction.user.id}`);
+      if (!ltc) return await interaction.reply({content: '❌ First use /setltc', ephemeral: true});
       const embed = new EmbedBuilder().setTitle('LTC Payment').setDescription(`**Address:** \`${ltc}\`\n**Amount:** ${amount} LTC\nSend exact amount.`).setColor(0x3452FF);
-      interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed] });
     }
 
     // ===== MOD =====
     if (interaction.isCommand() && interaction.commandName === 'purge') {
-      if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageMessages)) return interaction.reply({content: '❌ No perms', ephemeral: true});
+      if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageMessages)) return await interaction.reply({content: '❌ No perms', ephemeral: true});
       const amount = interaction.options.getInteger('amount');
       await interaction.channel.bulkDelete(amount);
-      interaction.reply({content: `✅ Deleted ${amount} messages`, ephemeral: true});
+      await interaction.reply({content: `✅ Deleted ${amount} messages`, ephemeral: true});
     }
     if (interaction.isCommand() && interaction.commandName === 'ban') {
-      if (!interaction.memberPermissions.has(PermissionFlagsBits.BanMembers)) return interaction.reply({content: '❌ No perms', ephemeral: true});
+      if (!interaction.memberPermissions.has(PermissionFlagsBits.BanMembers)) return await interaction.reply({content: '❌ No perms', ephemeral: true});
       const user = interaction.options.getUser('user');
       const reason = interaction.options.getString('reason') || 'No reason';
       await interaction.guild.members.ban(user, { reason });
-      interaction.reply(`🔨 Banned ${user.tag} | Reason: ${reason}`);
+      await interaction.reply(`🔨 Banned ${user.tag} | Reason: ${reason}`);
     }
     if (interaction.isCommand() && interaction.commandName === 'kick') {
-      if (!interaction.memberPermissions.has(PermissionFlagsBits.KickMembers)) return interaction.reply({content: '❌ No perms', ephemeral: true});
+      if (!interaction.memberPermissions.has(PermissionFlagsBits.KickMembers)) return await interaction.reply({content: '❌ No perms', ephemeral: true});
       const user = interaction.options.getUser('user');
       const reason = interaction.options.getString('reason') || 'No reason';
       await interaction.guild.members.kick(user, reason);
-      interaction.reply(`👢 Kicked ${user.tag} | Reason: ${reason}`);
+      await interaction.reply(`👢 Kicked ${user.tag} | Reason: ${reason}`);
     }
     if (interaction.isCommand() && interaction.commandName === 'timeout') {
-      if (!interaction.memberPermissions.has(PermissionFlagsBits.ModerateMembers)) return interaction.reply({content: '❌ No perms', ephemeral: true});
+      if (!interaction.memberPermissions.has(PermissionFlagsBits.ModerateMembers)) return await interaction.reply({content: '❌ No perms', ephemeral: true});
       const user = interaction.options.getMember('user');
       const time = interaction.options.getInteger('time');
       await user.timeout(time * 1000);
-      interaction.reply(`⏰ Timed out ${user} for ${time} seconds`);
+      await interaction.reply(`⏰ Timed out ${user} for ${time} seconds`);
     }
 
     // ===== CASINO SLOTS =====
@@ -290,12 +289,12 @@ Please describe your issue in detail.`)
       let win = result[0] === result[1] && result[1] === result[2];
       let payout = win? bet * 3 : 0;
       const embed = new EmbedBuilder().setTitle('🎰 ZYRO SLOTS').setDescription(`${result.join(' | ')}\n\n${win? `JACKPOT! You won ${payout}` : `You lost ${bet}`}`).setColor(win? 0xFFD700 : 0xED4245);
-      interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed] });
     }
 
   } catch (error) {
     console.error(error);
-    if(!interaction.replied) interaction.reply({content: `❌ Error: ${error.message}`, ephemeral: true});
+    if(!interaction.replied) await interaction.reply({content: `❌ Error: ${error.message}`, ephemeral: true});
   }
 });
 
