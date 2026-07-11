@@ -2,16 +2,14 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const QRCode = require('qrcode');
+const db = require('wio.db'); // CHANGED
 require('dotenv').config();
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers] });
 
-const { QuickDB } = require("quick.db");
-const db = new QuickDB();
-
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const SUPPORT_ROLE = process.env.SUPPORT_ROLE; // Add this in Render
+const SUPPORT_ROLE = process.env.SUPPORT_ROLE;
 
 // Anti-spam tracker
 const spamMap = new Map();
@@ -74,8 +72,8 @@ client.on('interactionCreate', async interaction => {
       if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) return interaction.reply({content: '❌ Admin only', ephemeral: true});
       
       const embed = new EmbedBuilder()
-      .setTitle('🎫 ZYRO Ticket System')
-      .setDescription(`Welcome to the ZYRO Ticket System — your fast, secure, and professional support center.
+     .setTitle('🎫 ZYRO Ticket System')
+     .setDescription(`Welcome to the ZYRO Ticket System — your fast, secure, and professional support center.
 
 Whether you need customer support, purchase assistance, order help, reports, partnerships, or general inquiries, our dedicated team is here to assist you as quickly as possible.
 
@@ -90,9 +88,9 @@ Whether you need customer support, purchase assistance, order help, reports, par
 Please create only one ticket per issue and provide all necessary details so we can help you efficiently.
 
 Thank you for choosing ZYRO. We appreciate your patience and look forward to assisting you!`)
-      .setColor(0x5865F2)
-      .setThumbnail(client.user.displayAvatarURL())
-      .setFooter({ text: 'ZYRO ALL IN ONE', iconURL: client.user.displayAvatarURL() });
+     .setColor(0x5865F2)
+     .setThumbnail(client.user.displayAvatarURL())
+     .setFooter({ text: 'ZYRO ALL IN ONE', iconURL: client.user.displayAvatarURL() });
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('create_ticket').setLabel('Create Ticket').setStyle(ButtonStyle.Primary).setEmoji('🎫')
@@ -117,11 +115,11 @@ Thank you for choosing ZYRO. We appreciate your patience and look forward to ass
       claimedTickets.delete(ticket.id);
 
       const embed = new EmbedBuilder()
-      .setDescription(`Hello <@${interaction.user.id}>,
+     .setDescription(`Hello <@${interaction.user.id}>,
 A staff member will be with you shortly.
 Please describe your issue in detail.`)
-      .setFooter({ text: 'Powered by ZYRO', iconURL: client.user.displayAvatarURL() })
-      .setColor(0x2B2D31);
+     .setFooter({ text: 'Powered by ZYRO', iconURL: client.user.displayAvatarURL() })
+     .setColor(0x2B2D31);
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('close_ticket').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
@@ -202,43 +200,43 @@ Please describe your issue in detail.`)
       setTimeout(() => interaction.channel.delete(), 5000);
     }
 
-    // ===== VOUCH SYSTEM =====
+    // ===== VOUCH SYSTEM - NO AWAIT NOW =====
     if (interaction.isCommand() && interaction.commandName === 'vouch') {
       const user = interaction.options.getUser('user');
       const item = interaction.options.getString('item');
       const price = interaction.options.getString('price');
-      let vouches = await db.get(`vouches-${user.id}`) || [];
+      let vouches = db.get(`vouches-${user.id}`) || [];
       vouches.push({ by: interaction.user.tag, item, price, date: new Date().toLocaleDateString() });
-      await db.set(`vouches-${user.id}`, vouches);
+      db.set(`vouches-${user.id}`, vouches);
       const embed = new EmbedBuilder().setTitle('✅ New Vouch!').setDescription(`**To:** ${user}\n**Item:** ${item}\n**Price:** ${price}\n**By:** ${interaction.user}`).setColor(0x57F287);
       interaction.reply({ embeds: [embed] });
     }
 
     if (interaction.isCommand() && interaction.commandName === 'vouchlist') {
       const user = interaction.options.getUser('user');
-      let vouches = await db.get(`vouches-${user.id}`) || [];
+      let vouches = db.get(`vouches-${user.id}`) || [];
       if (vouches.length === 0) return interaction.reply(`${user} has no vouches yet.`);
       const list = vouches.map((v, i) => `**${i+1}.** ${v.item} - \`${v.price}\` by ${v.by} on ${v.date}`).join('\n');
       const embed = new EmbedBuilder().setTitle(`Vouches for ${user.tag}`).setDescription(list).setColor(0x5865F2);
       interaction.reply({ embeds: [embed] });
     }
 
-    // ===== UPI / LTC SYSTEM =====
+    // ===== UPI / LTC SYSTEM - NO AWAIT NOW =====
     if (interaction.isCommand() && interaction.commandName === 'setupi') {
       const upi = interaction.options.getString('upi_id');
-      await db.set(`upi-${interaction.user.id}`, upi);
+      db.set(`upi-${interaction.user.id}`, upi);
       interaction.reply({content: `✅ UPI saved! You won't need to enter again.`, ephemeral: true});
     }
 
     if (interaction.isCommand() && interaction.commandName === 'setltc') {
       const ltc = interaction.options.getString('ltc');
-      await db.set(`ltc-${interaction.user.id}`, ltc);
+      db.set(`ltc-${interaction.user.id}`, ltc);
       interaction.reply({content: `✅ LTC saved!`, ephemeral: true});
     }
 
     if (interaction.isCommand() && interaction.commandName === 'upiqr') {
       const amount = interaction.options.getString('amount');
-      const upi = await db.get(`upi-${interaction.user.id}`);
+      const upi = db.get(`upi-${interaction.user.id}`);
       if (!upi) return interaction.reply({content: '❌ First use /setupi', ephemeral: true});
       const upiLink = `upi://pay?pa=${upi}&pn=ZYRO&am=${amount}&cu=INR`;
       const qr = await QRCode.toBuffer(upiLink);
@@ -247,7 +245,7 @@ Please describe your issue in detail.`)
 
     if (interaction.isCommand() && interaction.commandName === 'ltc') {
       const amount = interaction.options.getString('amount');
-      const ltc = await db.get(`ltc-${interaction.user.id}`);
+      const ltc = db.get(`ltc-${interaction.user.id}`);
       if (!ltc) return interaction.reply({content: '❌ First use /setltc', ephemeral: true});
       const embed = new EmbedBuilder().setTitle('LTC Payment').setDescription(`**Address:** \`${ltc}\`\n**Amount:** ${amount} LTC\nSend exact amount.`).setColor(0x3452FF);
       interaction.reply({ embeds: [embed] });
